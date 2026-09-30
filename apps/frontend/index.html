@@ -1,0 +1,50 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ShopMesh</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+ body{font-family:system-ui,sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem}
+ .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+ .card,.box{border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:6px}
+ button{cursor:pointer;padding:6px 12px} input{padding:6px;margin:2px}
+ .PAID{color:green}.PAYMENT_FAILED{color:crimson}.PENDING{color:darkorange}
+</style></head><body>
+<h1>ShopMesh</h1>
+<div class="box" id="auth">
+  <input id="email" placeholder="email"><input id="pw" type="password" placeholder="password">
+  <button onclick="reg()">Register</button><button onclick="login()">Login</button>
+  <span id="who"></span>
+</div>
+<h2>Products</h2><div class="grid" id="products"></div>
+<h2>Cart <button onclick="checkout()">Checkout</button></h2><pre id="cart">login first</pre>
+<h2>Orders</h2><div id="orders"></div>
+<script>
+let token = localStorage.token || '';
+const $ = (id) => document.getElementById(id);
+const api = async (path, opts = {}) => {
+  const r = await fetch('/api' + path, { ...opts,
+    headers: { 'Content-Type': 'application/json', ...(token && { Authorization: 'Bearer ' + token }) } });
+  return r.status === 204 ? null : r.json();
+};
+const post = (p, b) => api(p, { method: 'POST', body: JSON.stringify(b) });
+async function reg(){ alert(JSON.stringify(await post('/auth/register',{email:$('email').value,password:$('pw').value}))); }
+async function login(){
+  const r = await post('/auth/login',{email:$('email').value,password:$('pw').value});
+  if(r.token){ token=r.token; localStorage.token=token; refresh(); } else alert(r.error);
+}
+async function add(id){ await post('/cart/items',{productId:id,qty:1}); refresh(); }
+async function checkout(){ const r = await post('/checkout',{}); if(r.error) alert(r.error); refresh(); }
+async function refresh(){
+  const ps = await api('/products');
+  $('products').innerHTML = ps.map(p=>`<div class="card"><b>${p.name}</b><br>₹${(p.price_cents/100).toFixed(2)}
+    <br><button onclick="add(${p.id})">Add to cart</button></div>`).join('');
+  if(!token) return;
+  $('who').textContent = ' ✔ logged in';
+  const cart = await api('/cart');
+  if(cart.error){ token=''; localStorage.token=''; $('who').textContent=' session expired'; return; }
+  $('cart').textContent = JSON.stringify(cart);
+  const os = await api('/orders');
+  if(Array.isArray(os)) $('orders').innerHTML = os.map(o=>`<div class="box">#${o.id} — ₹${(o.total_cents/100).toFixed(2)}
+    — <b class="${o.status}">${o.status}</b></div>`).join('');
+}
+refresh(); setInterval(refresh, 3000);
+</script></body></html>

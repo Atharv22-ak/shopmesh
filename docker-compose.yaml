@@ -1,0 +1,55 @@
+# Local dev (no Kubernetes needed): docker compose up --build  ->  http://localhost:8081
+x-common: &common
+  restart: unless-stopped
+  environment: &env
+    POSTGRES_HOST: postgres
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    REDIS_URL: redis://redis:6379
+    RABBITMQ_HOST: rabbitmq
+    RABBITMQ_USER: guest
+    RABBITMQ_PASSWORD: guest
+    JWT_SECRET: dev-secret
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment: { POSTGRES_PASSWORD: postgres }
+    volumes:
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+  redis:
+    image: redis:7-alpine
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    ports: ["15672:15672"]
+
+  frontend:
+    build: ./apps/frontend
+    ports: ["8081:80"]
+    depends_on: [api-gateway]
+  api-gateway:
+    <<: *common
+    build: ./apps/api-gateway
+    environment:
+      <<: *env
+      USER_SERVICE_URL: http://user-service:3001
+      PRODUCT_SERVICE_URL: http://product-service:3002
+      ORDER_SERVICE_URL: http://order-service:3003
+  user-service:
+    <<: *common
+    build: ./apps/user-service
+    environment: { <<: *env, DB_NAME: users }
+  product-service:
+    <<: *common
+    build: ./apps/product-service
+    environment: { <<: *env, DB_NAME: products, PORT: "3002" }
+  order-service:
+    <<: *common
+    build: ./apps/order-service
+    environment: { <<: *env, DB_NAME: orders, PRODUCT_SERVICE_URL: "http://product-service:3002" }
+  payment-service:
+    <<: *common
+    build: ./apps/payment-service
+  notification-worker:
+    <<: *common
+    build: ./apps/notification-worker

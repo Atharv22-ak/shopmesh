@@ -1,0 +1,95 @@
+# ShopMesh - configuration. One flat chart, same conventions as devops-platform-v1.
+
+# ---------------------------------------------------------------------------
+# Gateway API - defined ONCE, used by every route in templates/httproutes.yaml
+# Each route only picks its own subdomain: <subdomain>.<domain>
+# (values copied from the previous cluster - verify them for the NEW cluster:
+#  node public IP for nip.io + the Gateway's NodePort)
+# ---------------------------------------------------------------------------
+gateway:
+  name: my-gateway
+  namespace: default
+  domain: 3.108.88.140.nip.io
+  nodePort: 30505          # only used to print URLs in the install notes
+
+global:
+  imageRegistry: rwxatharv          # Docker Hub user
+  imageTag: "v1"
+  imagePullPolicy: IfNotPresent
+
+# Secrets live in the Secret "shopmesh-secrets" (create with: make secrets).
+# Chart-generated secrets are NOT used by default because Argo CD renders with
+# `helm template`, where lookup/randAlphaNum would change on every sync.
+secrets:
+  create: false
+  # only used when create=true (quick local tests)
+  postgresPassword: change-me-postgres
+  jwtSecret: change-me-jwt-secret
+  rabbitmqUser: shop
+  rabbitmqPassword: change-me-rabbit
+
+config:
+  postgresUser: postgres
+
+defaultResources:
+  requests: { cpu: 50m, memory: 96Mi }
+  limits:   { cpu: 300m, memory: 256Mi }
+
+# ---- application services (Deployment + Service generated per entry) ----
+services:
+  frontend:
+    port: 80
+    replicas: 1
+    route: { enabled: true, subdomain: shop }
+    env:
+      API_GATEWAY_URL: http://api-gateway:8080
+  api-gateway:
+    port: 8080
+    replicas: 2
+    route: { enabled: true, subdomain: api, path: /api }
+    env:
+      USER_SERVICE_URL: http://user-service:3001
+      PRODUCT_SERVICE_URL: http://product-service:3002
+      ORDER_SERVICE_URL: http://order-service:3003
+  user-service:
+    port: 3001
+    env: { DB_NAME: users }
+  product-service:
+    port: 3002
+    env: { DB_NAME: products }
+  order-service:
+    port: 3003
+    env:
+      DB_NAME: orders
+      PRODUCT_SERVICE_URL: http://product-service:3002
+  payment-service:
+    port: 3004
+    env:
+      PAYMENT_FAILURE_RATE: "0.1"
+  notification-worker:
+    port: 3005
+    env: {}
+
+# ---- data stores / broker ----
+postgres:
+  image: postgres:16-alpine
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClassName: ""       # empty = cluster default (local-path)
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
+
+redis:
+  image: redis:7-alpine
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits:   { cpu: 250m, memory: 128Mi }
+
+rabbitmq:
+  image: rabbitmq:3.13-management-alpine
+  route: { enabled: true, subdomain: rabbitmq }   # management UI (port 15672)
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
