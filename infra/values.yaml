@@ -14,7 +14,7 @@ gateway:
 
 global:
   imageRegistry: rwxatharv          # Docker Hub user
-  imageTag: "v4"
+  imageTag: "v6"
   imagePullPolicy: IfNotPresent
 
 # Secrets live in the Secret "shopmesh-secrets" (create with: make secrets).
@@ -45,7 +45,7 @@ services:
       API_GATEWAY_URL: http://api-gateway:8080
   api-gateway:
     port: 8080
-    replicas: 2
+    replicas: 1
     route: { enabled: true, subdomain: api, path: /api }
     env:
       USER_SERVICE_URL: http://user-service:3001
@@ -96,7 +96,7 @@ rabbitmq:
 
 # ---- public access via Cloudflare Tunnel (runs in cluster) ----
 cloudflared:
-  enabled: true
+  enabled: false
   image: cloudflare/cloudflared:latest
   useToken: false                       # true = named tunnel with fixed hostname (needs secret cloudflared-token)
   targetUrl: http://frontend:80         # quick-tunnel target
@@ -111,7 +111,7 @@ cloudflared:
 # Enable:  helm upgrade --install ... --set elk.enabled=true   (or make deploy ELK=true)
 # ---------------------------------------------------------------------------
 elk:
-  enabled: false                 # MASTER SWITCH
+  enabled: true                 # MASTER SWITCH
   version: "8.15.3"              # one version for Elasticsearch / Logstash / Kibana / Filebeat
   elasticsearchUrl: http://elasticsearch:9200   # change only if elasticsearch.enabled=false (external ES)
   indexPrefix: shopmesh-logs     # indices: shopmesh-logs-YYYY.MM.dd
