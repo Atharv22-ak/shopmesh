@@ -14,14 +14,14 @@ gateway:
 
 global:
   imageRegistry: rwxatharv          # Docker Hub user
-  imageTag: "v1"
+  imageTag: "v2"
   imagePullPolicy: IfNotPresent
 
 # Secrets live in the Secret "shopmesh-secrets" (create with: make secrets).
 # Chart-generated secrets are NOT used by default because Argo CD renders with
 # `helm template`, where lookup/randAlphaNum would change on every sync.
 secrets:
-  create: false
+  create: true
   # only used when create=true (quick local tests)
   postgresPassword: change-me-postgres
   jwtSecret: change-me-jwt-secret
