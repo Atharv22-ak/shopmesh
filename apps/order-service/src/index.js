@@ -22,6 +22,18 @@ app.post('/cart/items', async (req, res) => {
   await redis.hIncrBy(cartKey(req), String(productId), Number(qty));
   res.json(await redis.hGetAll(cartKey(req)));
 });
+app.put('/cart/items', async (req, res) => {  // set exact qty; 0 removes
+  const { productId, qty } = req.body || {};
+  if (!productId) return res.status(400).json({ error: 'productId required' });
+  const n = Math.max(0, Math.min(10, Number(qty) || 0));
+  if (n) await redis.hSet(cartKey(req), String(productId), n);
+  else await redis.hDel(cartKey(req), String(productId));
+  res.json(await redis.hGetAll(cartKey(req)));
+});
+app.delete('/cart/items/:id', async (req, res) => {
+  await redis.hDel(cartKey(req), String(req.params.id));
+  res.json(await redis.hGetAll(cartKey(req)));
+});
 app.get('/cart', async (req, res) => res.json(await redis.hGetAll(cartKey(req))));
 app.delete('/cart', async (req, res) => { await redis.del(cartKey(req)); res.status(204).end(); });
 
@@ -34,12 +46,14 @@ app.post('/checkout', async (req, res) => {
     const r = await fetch(`${PRODUCT_URL}/products/${pid}`);
     if (!r.ok) return res.status(400).json({ error: `product ${pid} not found` });
     const p = await r.json();
+    if (Number(qty) > p.stock) return res.status(400).json({ error: `only ${p.stock} left for ${p.name}` });
     items.push({ productId: p.id, name: p.name, qty: Number(qty), priceCents: p.price_cents });
     total += p.price_cents * Number(qty);
   }
+  const address = String((req.body || {}).address || '').slice(0, 500);
   const o = await pool.query(
-    `INSERT INTO orders(user_id, total_cents, status, items) VALUES($1,$2,'PENDING',$3) RETURNING *`,
-    [uid(req), total, JSON.stringify(items)]);
+    `INSERT INTO orders(user_id, total_cents, status, items, address) VALUES($1,$2,'PENDING',$3,$4) RETURNING *`,
+    [uid(req), total, JSON.stringify(items), address]);
   await redis.del(cartKey(req));
   publish(ch, 'order.created', { orderId: o.rows[0].id, userId: Number(uid(req)), totalCents: total, items });
   res.status(202).json(o.rows[0]);
@@ -53,7 +67,8 @@ app.get('/orders', async (req, res) => {
 (async () => {
   await init(`CREATE TABLE IF NOT EXISTS orders (
     id SERIAL PRIMARY KEY, user_id INT NOT NULL, total_cents INT NOT NULL,
-    status TEXT NOT NULL, items JSONB NOT NULL, created_at TIMESTAMPTZ DEFAULT now())`);
+    status TEXT NOT NULL, items JSONB NOT NULL, created_at TIMESTAMPTZ DEFAULT now());
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS address TEXT;`);
   await redis.connect();
   ch = await connect();
   // payment result events -> update order status
