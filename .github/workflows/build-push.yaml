@@ -1,0 +1,37 @@
+name: build-and-push
+
+on:
+  push:
+    branches: [main]
+    paths: ["apps/**"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Image tag
+        default: v1
+
+env:
+  REGISTRY_USER: rwxatharv
+  TAG: ${{ github.event.inputs.tag || 'v1' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [frontend, api-gateway, user-service, product-service, order-service, payment-service, notification-worker]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: apps/${{ matrix.service }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY_USER }}/shopmesh-${{ matrix.service }}:${{ env.TAG }}
+            ${{ env.REGISTRY_USER }}/shopmesh-${{ matrix.service }}:sha-${{ github.sha }}
