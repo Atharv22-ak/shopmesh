@@ -93,3 +93,10 @@ rabbitmq:
   resources:
     requests: { cpu: 100m, memory: 256Mi }
     limits:   { cpu: 500m, memory: 512Mi }
+
+# ---- public access via Cloudflare Tunnel (runs in cluster) ----
+cloudflared:
+  enabled: true
+  image: cloudflare/cloudflared:latest
+  useToken: false                       # true = named tunnel with fixed hostname (needs secret cloudflared-token)
+  targetUrl: http://frontend:80         # quick-tunnel target

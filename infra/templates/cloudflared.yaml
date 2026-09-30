@@ -1,0 +1,36 @@
+{{- if .Values.cloudflared.enabled }}
+# Public access via Cloudflare Tunnel, running inside the cluster.
+#  - useToken: false -> quick tunnel (no account/domain, random *.trycloudflare.com URL, changes on pod restart)
+#  - useToken: true  -> named tunnel (fixed hostname). Needs secret "cloudflared-token" with key TOKEN.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  labels: {{- include "shopmesh.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cloudflared
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cloudflared
+        app.kubernetes.io/part-of: shopmesh
+    spec:
+      containers:
+        - name: cloudflared
+          image: {{ .Values.cloudflared.image }}
+          {{- if .Values.cloudflared.useToken }}
+          args: ["tunnel", "--no-autoupdate", "run"]
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef: { name: cloudflared-token, key: TOKEN }
+          {{- else }}
+          args: ["tunnel", "--no-autoupdate", "--url", {{ .Values.cloudflared.targetUrl | quote }}]
+          {{- end }}
+          resources:
+            requests: { cpu: 20m, memory: 32Mi }
+            limits:   { cpu: 200m, memory: 128Mi }
+{{- end }}
