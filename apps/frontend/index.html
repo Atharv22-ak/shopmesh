@@ -1,50 +1,264 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><title>ShopMesh</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ShopMesh</title>
 <style>
- body{font-family:system-ui,sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem}
- .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
- .card,.box{border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:6px}
- button{cursor:pointer;padding:6px 12px} input{padding:6px;margin:2px}
- .PAID{color:green}.PAYMENT_FAILED{color:crimson}.PENDING{color:darkorange}
-</style></head><body>
-<h1>ShopMesh</h1>
-<div class="box" id="auth">
-  <input id="email" placeholder="email"><input id="pw" type="password" placeholder="password">
-  <button onclick="reg()">Register</button><button onclick="login()">Login</button>
-  <span id="who"></span>
-</div>
-<h2>Products</h2><div class="grid" id="products"></div>
-<h2>Cart <button onclick="checkout()">Checkout</button></h2><pre id="cart">login first</pre>
-<h2>Orders</h2><div id="orders"></div>
+  :root{
+    --bg:#f5f6fa; --card:#fff; --text:#1b1f2a; --muted:#6b7280; --line:#e5e7eb;
+    --brand:#4f46e5; --brand-d:#4338ca; --ok:#16a34a; --warn:#d97706; --bad:#dc2626;
+    --shadow:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.04);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#0f1220;--card:#181c2e;--text:#e8eaf2;--muted:#9aa3b8;--line:#2a3050;--shadow:none}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  h2{font-size:1.1rem;margin:0 0 14px}
+  button,input{font:inherit}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+
+  header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  header .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+  .logo{font-weight:800;font-size:1.25rem;letter-spacing:-.02em}
+  .logo span{color:var(--brand)}
+  .user{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:.9rem}
+  .avatar{width:32px;height:32px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700;text-transform:uppercase}
+
+  main{padding:24px 0 48px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:20px}
+
+  .btn{border:1px solid var(--line);background:var(--card);color:var(--text);padding:9px 16px;border-radius:9px;cursor:pointer;font-weight:600;transition:.15s}
+  .btn:hover{border-color:var(--brand);color:var(--brand)}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.primary:hover{background:var(--brand-d);color:#fff}
+  .btn.sm{padding:6px 12px;font-size:.85rem}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+
+  /* auth */
+  .auth{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:24px}
+  .auth .hint{flex:1 1 100%;color:var(--muted);font-size:.9rem;margin:0}
+  .auth input{flex:1 1 200px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--text)}
+  .auth input:focus{outline:2px solid var(--brand);border-color:transparent}
+
+  /* layout */
+  .layout{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
+  @media (max-width:900px){.layout{grid-template-columns:1fr}}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}
+
+  /* product card */
+  .product{padding:0;overflow:hidden;display:flex;flex-direction:column}
+  .thumb{height:110px;display:grid;place-items:center;font-size:3rem}
+  .pbody{padding:14px 16px 16px;display:flex;flex-direction:column;gap:4px;flex:1}
+  .pname{font-weight:650}
+  .price{color:var(--brand);font-weight:700;font-size:1.05rem}
+  .pfoot{margin-top:auto;padding-top:10px}
+  .pfoot .btn{width:100%}
+
+  /* cart */
+  .cart{position:sticky;top:76px}
+  .empty{color:var(--muted);text-align:center;padding:18px 0}
+  .line{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .line .em{font-size:1.5rem;width:36px;text-align:center}
+  .line .info{flex:1;min-width:0}
+  .line .info b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .line .info small{color:var(--muted)}
+  .line .amt{font-weight:650}
+  .total{display:flex;justify-content:space-between;font-weight:700;font-size:1.05rem;padding:14px 0 12px}
+  .cart .actions{display:grid;grid-template-columns:1fr 2fr;gap:10px}
+
+  /* orders */
+  .orders{margin-top:28px}
+  .tablewrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
+  td.items{white-space:normal;min-width:180px}
+  td.num,th.num{text-align:right}
+  .badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:.78rem;font-weight:700}
+  .PAID{background:#dcfce7;color:#166534}
+  .PENDING{background:#fef3c7;color:#92400e}
+  .PAYMENT_FAILED{background:#fee2e2;color:#991b1b}
+
+  #toast{position:fixed;right:20px;bottom:20px;display:flex;flex-direction:column;gap:8px;z-index:20}
+  .t{background:#111827;color:#fff;padding:10px 16px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);animation:in .2s}
+  .t.err{background:var(--bad)}
+  @keyframes in{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="logo">Shop<span>Mesh</span></div>
+    <div class="user hidden" id="userBox">
+      <div class="avatar" id="avatar"></div><span id="userEmail"></span>
+      <button class="btn sm" id="logoutBtn">Logout</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card auth" id="authCard">
+    <p class="hint">Naya account banao (Register) ya login karo, phir cart use kar sakte ho.</p>
+    <input id="email" type="email" placeholder="Email" autocomplete="username">
+    <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+    <button class="btn" id="regBtn">Register</button>
+    <button class="btn primary" id="loginBtn">Login</button>
+  </section>
+
+  <div class="layout">
+    <section>
+      <h2>Products</h2>
+      <div class="grid" id="products"></div>
+    </section>
+
+    <aside class="card cart">
+      <h2>Your cart</h2>
+      <div id="cartBody"><div class="empty">Login karke cart use karo</div></div>
+      <div id="cartFoot" class="hidden">
+        <div class="total"><span>Total</span><span id="cartTotal">₹0.00</span></div>
+        <div class="actions">
+          <button class="btn" id="clearBtn">Clear</button>
+          <button class="btn primary" id="checkoutBtn">Checkout</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <section class="orders hidden" id="ordersSec">
+    <h2>Orders</h2>
+    <div class="card tablewrap" style="padding:8px 12px">
+      <table>
+        <thead><tr><th>#</th><th>Items</th><th class="num">Total</th><th>Status</th><th>Placed</th></tr></thead>
+        <tbody id="orders"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+
 <script>
-let token = localStorage.token || '';
 const $ = (id) => document.getElementById(id);
-const api = async (path, opts = {}) => {
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const inr = (c) => '₹' + (c / 100).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const GRADS = ['#e0e7ff,#c7d2fe', '#fce7f3,#fbcfe8', '#dcfce7,#bbf7d0', '#fef3c7,#fde68a', '#e0f2fe,#bae6fd', '#ede9fe,#ddd6fe'];
+const emoji = (n) => { n = n.toLowerCase();
+  return n.includes('keyboard') ? '⌨️' : n.includes('mouse') ? '🖱️' : n.includes('hub') ? '🔌' :
+         n.includes('monitor') ? '🖥️' : n.includes('stand') ? '💻' : n.includes('webcam') ? '📷' : '📦'; };
+
+let token = localStorage.getItem('token') || '';
+let products = [];
+let timer = null;
+
+function toast(msg, err) {
+  const d = document.createElement('div');
+  d.className = 't' + (err ? ' err' : ''); d.textContent = msg;
+  $('toast').appendChild(d); setTimeout(() => d.remove(), 3500);
+}
+function jwt(t) { try { return JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); } catch { return null; } }
+
+async function api(path, opts = {}) {
   const r = await fetch('/api' + path, { ...opts,
-    headers: { 'Content-Type': 'application/json', ...(token && { Authorization: 'Bearer ' + token }) } });
-  return r.status === 204 ? null : r.json();
-};
-const post = (p, b) => api(p, { method: 'POST', body: JSON.stringify(b) });
-async function reg(){ alert(JSON.stringify(await post('/auth/register',{email:$('email').value,password:$('pw').value}))); }
-async function login(){
-  const r = await post('/auth/login',{email:$('email').value,password:$('pw').value});
-  if(r.token){ token=r.token; localStorage.token=token; refresh(); } else alert(r.error);
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) } });
+  if (r.status === 401 && token) { logout(); throw new Error('Session expire ho gayi, dobara login karo'); }
+  if (r.status === 204) return null;
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'Error ' + r.status);
+  return data;
 }
-async function add(id){ await post('/cart/items',{productId:id,qty:1}); refresh(); }
-async function checkout(){ const r = await post('/checkout',{}); if(r.error) alert(r.error); refresh(); }
-async function refresh(){
-  const ps = await api('/products');
-  $('products').innerHTML = ps.map(p=>`<div class="card"><b>${p.name}</b><br>₹${(p.price_cents/100).toFixed(2)}
-    <br><button onclick="add(${p.id})">Add to cart</button></div>`).join('');
-  if(!token) return;
-  $('who').textContent = ' ✔ logged in';
-  const cart = await api('/cart');
-  if(cart.error){ token=''; localStorage.token=''; $('who').textContent=' session expired'; return; }
-  $('cart').textContent = JSON.stringify(cart);
+const post = (p, b) => api(p, { method: 'POST', body: JSON.stringify(b || {}) });
+const guard = (fn) => async (...a) => { try { await fn(...a); } catch (e) { toast(e.message, true); } };
+
+/* ---------- auth ---------- */
+const creds = () => ({ email: $('email').value.trim(), password: $('pw').value });
+$('regBtn').onclick = guard(async () => {
+  await post('/auth/register', creds()); toast('Registered! Ab Login dabao');
+});
+$('loginBtn').onclick = guard(async () => {
+  const r = await post('/auth/login', creds());
+  token = r.token; localStorage.setItem('token', token); $('pw').value = '';
+  showAuthState(); await refresh(); startPolling(); toast('Logged in');
+});
+$('logoutBtn').onclick = () => { logout(); toast('Logged out'); };
+function logout() {
+  token = ''; localStorage.removeItem('token'); clearInterval(timer); showAuthState(); renderCart({});
+}
+function showAuthState() {
+  const p = token && jwt(token);
+  const on = !!p;
+  $('authCard').classList.toggle('hidden', on);
+  $('userBox').classList.toggle('hidden', !on);
+  $('ordersSec').classList.toggle('hidden', !on);
+  if (on) { $('userEmail').textContent = p.email || 'user'; $('avatar').textContent = (p.email || 'u')[0]; }
+}
+
+/* ---------- products ---------- */
+async function loadProducts() {
+  products = await api('/products');
+  $('products').innerHTML = products.map((p, i) => `
+    <div class="card product">
+      <div class="thumb" style="background:linear-gradient(135deg,${GRADS[i % GRADS.length]})">${emoji(p.name)}</div>
+      <div class="pbody">
+        <div class="pname">${esc(p.name)}</div>
+        <div class="price">${inr(p.price_cents)}</div>
+        <div class="pfoot"><button class="btn primary sm" data-add="${p.id}">Add to cart</button></div>
+      </div>
+    </div>`).join('');
+}
+$('products').addEventListener('click', guard(async (e) => {
+  const id = e.target.dataset.add; if (!id) return;
+  if (!token) return toast('Pehle login karo', true);
+  renderCart(await post('/cart/items', { productId: Number(id), qty: 1 }));
+}));
+
+/* ---------- cart ---------- */
+function renderCart(cart) {
+  const ids = Object.keys(cart || {});
+  $('cartFoot').classList.toggle('hidden', !ids.length);
+  if (!token) { $('cartBody').innerHTML = '<div class="empty">Login karke cart use karo</div>'; return; }
+  if (!ids.length) { $('cartBody').innerHTML = '<div class="empty">Cart khaali hai</div>'; return; }
+  let total = 0;
+  $('cartBody').innerHTML = ids.map((id) => {
+    const p = products.find((x) => String(x.id) === id) || { name: 'Product #' + id, price_cents: 0 };
+    const q = Number(cart[id]); total += p.price_cents * q;
+    return `<div class="line"><div class="em">${emoji(p.name)}</div>
+      <div class="info"><b>${esc(p.name)}</b><small>${inr(p.price_cents)} × ${q}</small></div>
+      <div class="amt">${inr(p.price_cents * q)}</div>
+      <button class="btn sm" data-add="${id}" title="Add one more">+</button></div>`;
+  }).join('');
+  $('cartTotal').textContent = inr(total);
+}
+$('cartBody').addEventListener('click', guard(async (e) => {
+  const id = e.target.dataset.add; if (!id) return;
+  renderCart(await post('/cart/items', { productId: Number(id), qty: 1 }));
+}));
+$('clearBtn').onclick = guard(async () => { await api('/cart', { method: 'DELETE' }); renderCart({}); });
+$('checkoutBtn').onclick = guard(async () => {
+  const o = await post('/checkout');
+  toast('Order #' + o.id + ' place ho gaya (PENDING)'); renderCart({}); await loadOrders();
+});
+
+/* ---------- orders ---------- */
+async function loadOrders() {
   const os = await api('/orders');
-  if(Array.isArray(os)) $('orders').innerHTML = os.map(o=>`<div class="box">#${o.id} — ₹${(o.total_cents/100).toFixed(2)}
-    — <b class="${o.status}">${o.status}</b></div>`).join('');
+  $('orders').innerHTML = os.length ? os.map((o) => {
+    const items = (o.items || []).map((i) => `${esc(i.name)} × ${i.qty}`).join(', ');
+    return `<tr><td>#${o.id}</td><td class="items">${items}</td><td class="num">${inr(o.total_cents)}</td>
+      <td><span class="badge ${esc(o.status)}">${esc(o.status.replace('_', ' '))}</span></td>
+      <td>${new Date(o.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</td></tr>`;
+  }).join('') : '<tr><td colspan="5" style="color:var(--muted);text-align:center">Abhi koi order nahi</td></tr>';
 }
-refresh(); setInterval(refresh, 3000);
-</script></body></html>
+
+async function refresh() {
+  if (!products.length) await loadProducts();
+  if (token) { renderCart(await api('/cart')); await loadOrders(); }
+}
+function startPolling() { clearInterval(timer); if (token) timer = setInterval(guard(loadOrders), 3000); }
+
+showAuthState();
+guard(async () => { await loadProducts(); await refresh(); startPolling(); })();
+</script>
+</body>
+</html>

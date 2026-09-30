@@ -51,6 +51,8 @@ shopmesh/
 - (optional) Argo CD in namespace `argocd`
 
 ## Deploy
+Images ya to local `make build` se, ya GitHub Actions (`.github/workflows/build-push.yaml`) se push hote hain. Repo Settings -> Secrets me `DOCKERHUB_USERNAME` aur `DOCKERHUB_TOKEN` (Docker Hub access token) add karo.
+
 ```bash
 # 1. images (docker login rwxatharv pehle)
 make build
