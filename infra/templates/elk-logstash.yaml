@@ -1,0 +1,63 @@
+{{- if and .Values.elk.enabled .Values.elk.logstash.enabled }}
+{{- $ls := .Values.elk.logstash }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash
+  labels:
+    {{- include "shopmesh.labels" . | nindent 4 }}
+    app.kubernetes.io/name: logstash
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: logstash
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: logstash
+        app.kubernetes.io/part-of: shopmesh-elk
+      annotations:
+        checksum/pipeline: {{ include (print $.Template.BasePath "/elk-logstash-config.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: logstash
+          image: docker.elastic.co/logstash/logstash:{{ .Values.elk.version }}
+          ports:
+            - { name: beats, containerPort: 5044 }
+            - { name: http, containerPort: 9600 }
+          env:
+            - { name: LS_JAVA_OPTS, value: "-Xms{{ $ls.heap }} -Xmx{{ $ls.heap }}" }
+          readinessProbe:
+            httpGet: { path: /, port: 9600 }
+            initialDelaySeconds: 40
+            periodSeconds: 10
+            failureThreshold: 18
+          livenessProbe:
+            tcpSocket: { port: 9600 }
+            initialDelaySeconds: 120
+            periodSeconds: 20
+          resources:
+            {{- toYaml $ls.resources | nindent 12 }}
+          volumeMounts:
+            - name: pipeline
+              mountPath: /usr/share/logstash/pipeline
+              readOnly: true
+      volumes:
+        - name: pipeline
+          configMap:
+            name: logstash-pipeline
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash
+  labels:
+    {{- include "shopmesh.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/name: logstash
+  ports:
+    - { name: beats, port: 5044 }
+    - { name: http, port: 9600 }
+{{- end }}

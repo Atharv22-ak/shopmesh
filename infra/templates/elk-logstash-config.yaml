@@ -1,0 +1,55 @@
+{{- if and .Values.elk.enabled .Values.elk.logstash.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-pipeline
+  labels:
+    {{- include "shopmesh.labels" . | nindent 4 }}
+data:
+  logstash.conf: |
+    input {
+      beats { port => 5044 }
+    }
+
+    filter {
+      # service name = container name (api-gateway, order-service, ...)
+      if [kubernetes][container][name] {
+        mutate { copy => { "[kubernetes][container][name]" => "service" } }
+      }
+
+      # console.error -> stderr -> level=error
+      if [stream] == "stderr" or [log][stream] == "stderr" {
+        mutate { add_field => { "level" => "error" } }
+      } else {
+        mutate { add_field => { "level" => "info" } }
+      }
+
+      # if a service ever logs JSON lines, lift them into app.*
+      if [message] =~ /^\s*\{.*\}\s*$/ {
+        json { source => "message" target => "app" skip_on_invalid_json => true }
+      }
+
+      # structured fields for ShopMesh business events
+      grok {
+        match => {
+          "message" => [
+            "^\[NOTIFY\] user=%{NOTSPACE:user_id} event=%{NOTSPACE:event_key} order=%{NOTSPACE:order_id}",
+            "^order %{NOTSPACE:order_id} -> %{WORD:order_status}",
+            "^processing payment for order %{NOTSPACE:order_id}"
+          ]
+        }
+        tag_on_failure => []
+      }
+
+      mutate { remove_field => [ "[agent][ephemeral_id]", "[ecs]", "[input]" ] }
+    }
+
+    output {
+      elasticsearch {
+        hosts => ["{{ include "shopmesh.elk.esUrl" . }}"]
+        index => "{{ .Values.elk.indexPrefix }}-%{+YYYY.MM.dd}"
+        manage_template => false
+        ilm_enabled => false
+      }
+    }
+{{- end }}

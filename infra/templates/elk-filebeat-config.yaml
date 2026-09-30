@@ -1,0 +1,49 @@
+{{- if and .Values.elk.enabled .Values.elk.filebeat.enabled }}
+{{- $fb := .Values.elk.filebeat }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebeat-config
+  labels:
+    {{- include "shopmesh.labels" . | nindent 4 }}
+data:
+  filebeat.yml: |
+    filebeat.autodiscover:
+      providers:
+        - type: kubernetes
+          node: ${NODE_NAME}
+          hints.enabled: false
+          templates:
+            - {{- if $fb.namespaceOnly }}
+              condition:
+                equals:
+                  kubernetes.namespace: {{ .Release.Namespace }}
+              {{- end }}
+              config:
+                - type: container
+                  paths:
+                    - /var/log/containers/*-${data.kubernetes.container.id}.log
+
+    processors:
+      # never ship the logging stack's own logs (feedback loop)
+      - drop_event:
+          when:
+            regexp:
+              kubernetes.container.name: '^({{ join "|" $fb.excludeContainers }})$'
+
+    {{- if .Values.elk.logstash.enabled }}
+
+    output.logstash:
+      hosts: ["logstash:5044"]
+    {{- else }}
+
+    # Logstash is OFF -> ship straight to Elasticsearch
+    setup.template.enabled: false
+    setup.ilm.enabled: false
+    output.elasticsearch:
+      hosts: ["{{ include "shopmesh.elk.esUrl" . }}"]
+      index: "{{ .Values.elk.indexPrefix }}-%{+yyyy.MM.dd}"
+    {{- end }}
+
+    logging.level: info
+{{- end }}

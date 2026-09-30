@@ -75,5 +75,28 @@ kubectl apply -f argocd/argocd-httproute.yaml  # optional: argocd.<domain>
 ```
 Note: Argo CD `helm template` se render karta hai, isliye `lookup`/`randAlphaNum` wale secrets har sync pe badal jate hain. Isliye secrets chart ke bahar (`create-secrets.sh`) rakhe hain.
 
+## ELK + Filebeat (optional, `values.yaml` me true/false)
+```
+pods stdout/stderr -> Filebeat (DaemonSet) -> Logstash -> Elasticsearch -> Kibana
+```
+| Switch | Meaning |
+|---|---|
+| `elk.enabled` | master switch (default `false`) |
+| `elk.elasticsearch.enabled` / `elk.logstash.enabled` / `elk.kibana.enabled` / `elk.filebeat.enabled` | har component alag on/off |
+| `elk.logstash.enabled: false` | Filebeat seedha Elasticsearch ko bhejta hai (~1Gi RAM bachti hai) |
+| `elk.kibana.route.enabled` | Kibana ko `kibana.<domain>:<nodePort>` pe expose karo |
+| `elk.elasticsearch.persistence.enabled` | ES data PVC (local-path) |
+| `elk.retentionDays` | itne din baad purane log indices auto-delete (ILM) |
+
+```bash
+make deploy ELK=true            # ya: helm upgrade --install shopmesh infra -n shopmesh --set elk.enabled=true
+make elk-status
+make kibana                     # port-forward, agar route off hai
+```
+Kibana me pehle se ek data view **ShopMesh Logs** bana hota hai -> Discover kholo. Useful filters: `service : "order-service"`, `level : "error"`, `order_id : 12`.
+Argo CD me: `argocd/argocd-app.yaml` ke `source:` ke neeche `helm: { parameters: [{ name: elk.enabled, value: "true" }] }` ya seedha `values.yaml` me `enabled: true` commit karo.
+
+**Dhyan rakho:** Elasticsearch/Kibana me security OFF hai (demo/learning setup) aur Kibana route public hai — production me `kibana.route.enabled: false` rakho ya Elastic security + auth lagao. Sab ON = ~4 GB RAM.
+
 ## Next steps (ideas)
-Old chart ke `monitoring/` (Prometheus + Grafana) aur `elk/` (Filebeat + ELK) templates yahan copy karke `ServiceMonitor`-free scrape config se add kar sakte ho; HPA on api-gateway; NetworkPolicies; CI (GitHub Actions build -> tag bump -> Argo sync); Kafka swap; stock decrement on `payment.completed`.
+Old chart ke `monitoring/` (Prometheus + Grafana) templates copy karke add kar sakte ho (ELK ab add ho chuka hai); HPA on api-gateway; NetworkPolicies; CI (GitHub Actions build -> tag bump -> Argo sync); Kafka swap; stock decrement on `payment.completed`.

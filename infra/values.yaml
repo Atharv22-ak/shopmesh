@@ -14,7 +14,7 @@ gateway:
 
 global:
   imageRegistry: rwxatharv          # Docker Hub user
-  imageTag: "v3"
+  imageTag: "v4"
   imagePullPolicy: IfNotPresent
 
 # Secrets live in the Secret "shopmesh-secrets" (create with: make secrets).
@@ -100,3 +100,57 @@ cloudflared:
   image: cloudflare/cloudflared:latest
   useToken: false                       # true = named tunnel with fixed hostname (needs secret cloudflared-token)
   targetUrl: http://frontend:80         # quick-tunnel target
+
+# ---------------------------------------------------------------------------
+# ELK + Filebeat (centralised logs) - every block has its own true/false
+#   Filebeat (DaemonSet) -> Logstash -> Elasticsearch -> Kibana
+#   elk.enabled: false            => NOTHING below is rendered
+#   elk.logstash.enabled: false   => Filebeat ships straight to Elasticsearch (saves ~1Gi RAM)
+#   elk.kibana.route.enabled      => expose Kibana at kibana.<gateway.domain> (no login! see README)
+# With everything ON keep ~4 GB of free RAM on the node.
+# Enable:  helm upgrade --install ... --set elk.enabled=true   (or make deploy ELK=true)
+# ---------------------------------------------------------------------------
+elk:
+  enabled: false                 # MASTER SWITCH
+  version: "8.15.3"              # one version for Elasticsearch / Logstash / Kibana / Filebeat
+  elasticsearchUrl: http://elasticsearch:9200   # change only if elasticsearch.enabled=false (external ES)
+  indexPrefix: shopmesh-logs     # indices: shopmesh-logs-YYYY.MM.dd
+  retentionDays: 7               # old log indices are deleted automatically (ILM)
+
+  elasticsearch:
+    enabled: true
+    heap: 512m
+    sysctlInit: true             # privileged init container for vm.max_map_count (set false if pods can't be privileged)
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClassName: ""       # empty = cluster default (local-path)
+    resources:
+      requests: { cpu: 250m, memory: 1Gi }
+      limits:   { cpu: "1", memory: 1536Mi }
+
+  logstash:
+    enabled: true
+    heap: 256m
+    resources:
+      requests: { cpu: 100m, memory: 512Mi }
+      limits:   { cpu: 500m, memory: 1Gi }
+
+  kibana:
+    enabled: true
+    route: { enabled: true, subdomain: kibana }
+    resources:
+      requests: { cpu: 100m, memory: 512Mi }
+      limits:   { cpu: 500m, memory: 1Gi }
+
+  filebeat:
+    enabled: true
+    namespaceOnly: true          # only collect logs of this release's namespace
+    excludeContainers: [filebeat, logstash, elasticsearch, kibana, elk-setup]
+    mountDockerLogs: false       # true only on nodes that use the docker runtime (not containerd/k3s)
+    resources:
+      requests: { cpu: 50m, memory: 100Mi }
+      limits:   { cpu: 200m, memory: 200Mi }
+
+  setup:
+    enabled: true                # post-install Job: retention policy, replicas=0 template, Kibana data view

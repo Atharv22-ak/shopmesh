@@ -9,3 +9,8 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- define "shopmesh.host" -}}
 {{- printf "%s.%s" .sub .root.Values.gateway.domain -}}
 {{- end -}}
+
+{{- /* Elasticsearch URL used by Logstash / Filebeat / Kibana / setup Job */}}
+{{- define "shopmesh.elk.esUrl" -}}
+{{- .Values.elk.elasticsearchUrl | default "http://elasticsearch:9200" -}}
+{{- end -}}

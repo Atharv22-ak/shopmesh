@@ -1,0 +1,76 @@
+{{- if and .Values.elk.enabled .Values.elk.setup.enabled }}
+{{- $p := .Values.elk.indexPrefix }}
+{{- $es := include "shopmesh.elk.esUrl" . }}
+# Runs after install/upgrade: ILM retention, single-node friendly index template
+# (replicas=0 => cluster stays green) and a ready-made Kibana data view.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: elk-setup
+  labels:
+    {{- include "shopmesh.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: elk-setup
+        app.kubernetes.io/part-of: shopmesh-elk
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: elk-setup
+          image: curlimages/curl:8.10.1
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -e
+              ES="{{ $es }}"
+              J='Content-Type: application/json'
+
+              wait_for() {
+                for i in $(seq 1 180); do
+                  curl -fsS "$1" >/dev/null 2>&1 && return 0
+                  echo "waiting for $1 ..."; sleep 5
+                done
+                echo "timeout waiting for $1"; return 1
+              }
+
+              wait_for "$ES/_cluster/health"
+
+              echo "== ILM: delete indices after {{ .Values.elk.retentionDays }} days"
+              curl -fsS -X PUT "$ES/_ilm/policy/{{ $p }}" -H "$J" \
+                -d '{ "policy": { "phases": { "delete": { "min_age": "{{ .Values.elk.retentionDays }}d", "actions": { "delete": {} } } } } }'
+              echo
+
+              echo "== index template (1 shard, 0 replicas, ILM)"
+              curl -fsS -X PUT "$ES/_index_template/{{ $p }}-template" -H "$J" \
+                -d '{ "index_patterns": ["{{ $p }}-*"], "template": { "settings": { "number_of_shards": 1, "number_of_replicas": 0, "index.lifecycle.name": "{{ $p }}" } } }'
+              echo
+
+              # indices that were created before the template existed
+              curl -sS -X PUT "$ES/{{ $p }}-*/_settings" -H "$J" \
+                -d '{ "index": { "number_of_replicas": 0 } }' || true
+              echo
+
+              {{- if .Values.elk.kibana.enabled }}
+
+              echo "== Kibana data view"
+              wait_for "http://kibana:5601/api/status"
+              curl -fsS -X POST "http://kibana:5601/api/data_views/data_view" -H "$J" -H 'kbn-xsrf: true' \
+                -d '{ "override": true, "data_view": { "id": "{{ $p }}", "name": "ShopMesh Logs", "title": "{{ $p }}-*", "timeFieldName": "@timestamp" } }'
+              echo
+              curl -fsS -X POST "http://kibana:5601/api/data_views/default" -H "$J" -H 'kbn-xsrf: true' \
+                -d '{ "data_view_id": "{{ $p }}", "force": true }'
+              echo
+              {{- end }}
+
+              echo "ELK setup done"
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits:   { cpu: 100m, memory: 64Mi }
+{{- end }}

@@ -1,6 +1,8 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ShopMesh – Online Shopping</title>
+<meta name="theme-color" content="#131921">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛍️</text></svg>">
 <style>
 :root{--nav:#131921;--nav2:#232f3e;--or:#ff9900;--yl:#ffd814;--or2:#ffa41c;--lk:#007185;--pr:#b12704}
 *{box-sizing:border-box}body{margin:0;background:#eaeded;color:#0f1111;font:14px/1.4 Arial,sans-serif}
@@ -33,6 +35,33 @@ select,input.f,textarea{padding:7px;border:1px solid #888;border-radius:3px;font
 .top{background:#37475a;color:#fff;text-align:center;padding:14px;cursor:pointer}footer{background:var(--nav2);color:#ddd;text-align:center;padding:24px;font-size:12px}
 #toast{position:fixed;right:16px;bottom:16px;z-index:20}.t2{background:#111;color:#fff;padding:10px 16px;margin-top:8px;border-radius:6px}.t2.err{background:#c40000}
 @media(max-width:900px){.dt,.cl,.sl{grid-template-columns:1fr}.hd{display:none}}
+
+/* ---- UI polish ---- */
+:root{--r:12px;--sh:0 1px 2px rgba(15,17,17,.08),0 4px 14px rgba(15,17,17,.06);--sh2:0 10px 30px rgba(15,17,17,.18)}
+html{scroll-behavior:smooth}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:linear-gradient(#e3e6e6,#f3f4f6 420px) fixed;-webkit-font-smoothing:antialiased}
+header{background:linear-gradient(90deg,#0f141a,#1b2838);box-shadow:0 2px 12px rgba(0,0,0,.35)}
+.search{border-radius:10px;box-shadow:0 0 0 0 transparent;transition:box-shadow .2s}.search:focus-within{box-shadow:0 0 0 3px var(--or)}
+.sub a{border-radius:4px;transition:background .15s}.sub a:hover{background:rgba(255,255,255,.14);text-decoration:none}
+.box{border-radius:var(--r);box-shadow:var(--sh)}
+.pc{border-radius:var(--r);border-color:#eceff1;transition:transform .2s,box-shadow .2s}.pc:hover{transform:translateY(-4px);box-shadow:var(--sh2)}
+.img{position:relative;border-radius:10px;background:linear-gradient(135deg,#f7f8f8,#e6edf4);transition:transform .25s}.pc:hover .img{transform:scale(1.03)}
+.badge{position:absolute;top:8px;left:8px;background:#cc0c39;color:#fff;font:700 12px/1 system-ui,sans-serif;padding:5px 8px;border-radius:6px}
+.low{color:#b12704;font-weight:600}
+.b{transition:transform .12s,background .15s,box-shadow .15s}.b:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.18)}.b:active{transform:none}
+.hero:before{content:"";position:absolute;width:440px;height:440px;right:8%;top:-90px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.2),transparent 70%);pointer-events:none}
+.hero>div{animation:fade .5s both}
+.ci{transition:background .15s}.ci:hover{background:#fafafa}
+.top{transition:background .15s}.top:hover{background:#485769}
+.t2{box-shadow:var(--sh2);animation:slide .25s both}
+.cnt.bump{animation:bump .3s}
+.sk{height:300px;border-radius:var(--r);background:linear-gradient(90deg,#e8eaea 25%,#f6f7f7 37%,#e8eaea 63%);background-size:400% 100%;animation:shine 1.3s infinite}
+a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--or);outline-offset:2px}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes slide{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+@keyframes bump{50%{transform:scale(1.5)}}
+@keyframes shine{0%{background-position:100% 50%}100%{background-position:0 50%}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style></head><body>
 <header>
   <a class="logo" href="#/">Shop<b>Mesh</b></a>
@@ -42,7 +71,7 @@ select,input.f,textarea{padding:7px;border:1px solid #888;border-radius:3px;font
   <a class="hb" href="#/cart"><span class="cnt" id="cc">0</span> 🛒<b>Cart</b></a>
 </header>
 <div class="sub" id="sub"></div>
-<main id="view"></main>
+<main id="view"><div class="grid" style="margin-top:24px"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></main>
 <div class="top" onclick="scrollTo(0,0)">Back to top</div>
 <footer>ShopMesh — demo microservices store (Kubernetes · RabbitMQ · Redis · Postgres)</footer>
 <div id="toast"></div>
@@ -64,14 +93,14 @@ const eta=()=>new Date(Date.now()+3*864e5).toLocaleDateString('en-IN',{weekday:'
 const cnt=()=>Object.values(C).reduce((a,b)=>a+Number(b),0);
 const sub=()=>Object.entries(C).reduce((a,[i,q])=>a+(pid(i)?.price_cents||0)*q,0);
 const price=p=>`<div><span class="pr"><small>₹</small>${(p.price_cents/100).toLocaleString('en-IN')}</span> ${disc(p)?`<span class="mrp">M.R.P: ${inr(p.mrp_cents)}</span> <span class="off">(${disc(p)}% off)</span>`:''}</div>`;
-const card=p=>`<div class="pc"><div class="img" onclick="location.hash='#/p/${p.id}'">${p.emoji}</div>
+const card=p=>`<div class="pc"><div class="img" onclick="location.hash='#/p/${p.id}'">${p.emoji}${disc(p)?`<span class="badge">-${disc(p)}%</span>`:''}</div>
  <a class="pn" href="#/p/${p.id}">${esc(p.name)}</a><div><span class="star">${stars(p.rating)}</span> <a>${p.reviews.toLocaleString('en-IN')}</a></div>${price(p)}
- <small>FREE delivery by ${eta()}</small><button class="b by" data-a="add" data-id="${p.id}" ${p.stock?'':'disabled'}>Add to Cart</button></div>`;
+ <small>FREE delivery by ${eta()}</small>${p.stock&&p.stock<=5?`<small class="low">Only ${p.stock} left</small>`:''}<button class="b by" data-a="add" data-id="${p.id}" ${p.stock?'':'disabled'}>Add to Cart</button></div>`;
 
 function head(){const cats=[...new Set(P.map(p=>p.category))];
   $('sc').innerHTML='<option value="">All</option>'+cats.map(c=>`<option>${esc(c)}</option>`).join('');
   $('sub').innerHTML='<a href="#/search">☰ All</a><a href="#/search?d=1">Today\'s Deals</a>'+cats.map(c=>`<a href="#/search?c=${encodeURIComponent(c)}">${esc(c)}</a>`).join('');}
-function chrome(){$('cc').textContent=cnt();$('acc').innerHTML=token?`Hello, ${esc(uname||'user')}<b>Account</b>`:'Hello, sign in<b>Account</b>';}
+function chrome(){const c=$('cc'),n=cnt();if(c.textContent!=n){c.classList.remove('bump');void c.offsetWidth;c.classList.add('bump')}c.textContent=n;$('acc').innerHTML=token?`Hello, ${esc(uname||'user')}<b>Account</b>`:'Hello, sign in<b>Account</b>';}
 async function loadCart(){C=token?await api('/cart'):{};chrome()}
 function out(){token=uname='';delete localStorage.token;delete localStorage.uname;C={};chrome();location.hash='#/'}
 

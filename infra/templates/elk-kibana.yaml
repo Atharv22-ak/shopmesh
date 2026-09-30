@@ -1,0 +1,78 @@
+{{- if and .Values.elk.enabled .Values.elk.kibana.enabled }}
+{{- $kb := .Values.elk.kibana }}
+{{- $gw := .Values.gateway }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+  labels:
+    {{- include "shopmesh.labels" . | nindent 4 }}
+    app.kubernetes.io/name: kibana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kibana
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kibana
+        app.kubernetes.io/part-of: shopmesh-elk
+    spec:
+      containers:
+        - name: kibana
+          image: docker.elastic.co/kibana/kibana:{{ .Values.elk.version }}
+          ports:
+            - containerPort: 5601
+          env:
+            - { name: ELASTICSEARCH_HOSTS, value: {{ include "shopmesh.elk.esUrl" . | quote }} }
+            - { name: NODE_OPTIONS, value: "--max-old-space-size=512" }
+            - { name: TELEMETRY_OPTIN, value: "false" }
+            {{- if $kb.route.enabled }}
+            - name: SERVER_PUBLICBASEURL
+              value: {{ printf "http://%s:%v" (include "shopmesh.host" (dict "sub" $kb.route.subdomain "root" $)) $gw.nodePort | quote }}
+            {{- end }}
+          readinessProbe:
+            httpGet: { path: /api/status, port: 5601 }
+            initialDelaySeconds: 40
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            tcpSocket: { port: 5601 }
+            initialDelaySeconds: 180
+            periodSeconds: 20
+          resources:
+            {{- toYaml $kb.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana
+  labels:
+    {{- include "shopmesh.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/name: kibana
+  ports:
+    - { name: http, port: 5601 }
+{{- if $kb.route.enabled }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: kibana
+  labels:
+    {{- include "shopmesh.labels" . | nindent 4 }}
+    app.kubernetes.io/name: kibana
+spec:
+  parentRefs:
+    - name: {{ $gw.name }}
+      namespace: {{ $gw.namespace }}
+  hostnames:
+    - {{ include "shopmesh.host" (dict "sub" $kb.route.subdomain "root" $) | quote }}
+  rules:
+    - backendRefs:
+        - name: kibana
+          port: 5601
+{{- end }}
+{{- end }}

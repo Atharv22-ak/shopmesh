@@ -16,3 +16,13 @@ URLs (Gateway NodePort {{ .Values.gateway.nodePort }}):
 
 Watch the async flow:
   kubectl -n {{ .Release.Namespace }} logs -f deploy/notification-worker
+{{- if .Values.elk.enabled }}
+
+ELK logging is ON (Filebeat{{ if .Values.elk.logstash.enabled }} -> Logstash{{ end }} -> Elasticsearch -> Kibana). First start takes 2-3 minutes.
+{{- if and .Values.elk.kibana.enabled .Values.elk.kibana.route.enabled }}
+  kibana : http://{{ include "shopmesh.host" (dict "sub" .Values.elk.kibana.route.subdomain "root" $) }}:{{ .Values.gateway.nodePort }}   (Discover -> data view "ShopMesh Logs")
+{{- else if .Values.elk.kibana.enabled }}
+  kibana : kubectl -n {{ .Release.Namespace }} port-forward svc/kibana 5601:5601   ->  http://localhost:5601
+{{- end }}
+  check  : kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/part-of=shopmesh-elk
+{{- end }}
