@@ -28,10 +28,11 @@ spec:
               valueFrom:
                 secretKeyRef: { name: shopmesh-secrets, key: RABBITMQ_PASSWORD }
           readinessProbe:
-            exec:
-              command: ["rabbitmq-diagnostics", "-q", "ping"]
-            initialDelaySeconds: 20
+            tcpSocket:
+              port: 5672
+            initialDelaySeconds: 15
             periodSeconds: 10
+            timeoutSeconds: 5
           resources:
             {{- toYaml .Values.rabbitmq.resources | nindent 12 }}
 ---
