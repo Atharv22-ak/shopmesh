@@ -7,10 +7,10 @@
 #  node public IP for nip.io + the Gateway's NodePort)
 # ---------------------------------------------------------------------------
 gateway:
-  name: my-gateway
+  name: main-gateway
   namespace: default
   domain: 3.108.88.140.nip.io
-  nodePort: 30505          # only used to print URLs in the install notes
+  nodePort: 32136          # only used to print URLs in the install notes
 
 global:
   imageRegistry: rwxatharv          # Docker Hub user
@@ -111,7 +111,7 @@ cloudflared:
 # Enable:  helm upgrade --install ... --set elk.enabled=true   (or make deploy ELK=true)
 # ---------------------------------------------------------------------------
 elk:
-  enabled: true                 # MASTER SWITCH
+  enabled: false                 # MASTER SWITCH
   version: "8.15.3"              # one version for Elasticsearch / Logstash / Kibana / Filebeat
   elasticsearchUrl: http://elasticsearch:9200   # change only if elasticsearch.enabled=false (external ES)
   indexPrefix: shopmesh-logs     # indices: shopmesh-logs-YYYY.MM.dd
