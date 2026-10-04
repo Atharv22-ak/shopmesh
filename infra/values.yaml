@@ -14,7 +14,7 @@ gateway:
 
 global:
   imageRegistry: rwxatharv          # Docker Hub user
-  imageTag: "v10"
+  imageTag: "v7"
   imagePullPolicy: IfNotPresent
 
 # Secrets live in the Secret "shopmesh-secrets" (create with: make secrets).

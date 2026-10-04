@@ -679,6 +679,9 @@ a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,te
   0% { background-position: 100% 0; }
   100% { background-position: -100% 0; }
 }
+/* product page hero image */
+.product-images{display:block!important;margin:0!important}
+.product-images img.active{width:100%!important;height:auto!important;aspect-ratio:3/2;object-fit:cover;border-radius:10px;transform:none!important;border:0!important}
 </style></head><body>
 <header>
   <a class="logo" href="#/">Shop<b>Mesh</b></a>
@@ -778,39 +781,40 @@ const toast = (message, type = '', duration = 3500) => {
   setTimeout(() => d.remove(), duration);
 };
 
-// Image URLs for products (using placeholder service)
-const getProductImage = (emoji, name) => {
-  // Map emojis to relevant placeholder images or use a service
-  const emojiMap = {
-    '⌨️': 'keyboard',
-    '🖱️': 'mouse',
-    '🔌': 'cable',
-    '🖥️': 'monitor',
-    '💻': 'laptop',
-    '📷': 'webcam',
-    '🎧': 'headphones',
-    '🔊': 'speaker',
-    '⌚': 'watch',
-    '🏃': 'fitness',
-    '🔋': 'powerbank',
-    '📱': 'phone',
-    '💡': 'lamp',
-    '🪑': 'chair',
-    '❄️': 'cooling',
-    '🎤': 'microphone',
-    '⚖️': 'scale',
-    '📋': 'organizer'
-  };
-
-  const keyword = emojiMap[emoji] || 'product';
-  return `https://via.placeholder.com/300x200?text=${encodeURIComponent(name.split(' ')[0])}`;
+// Product images: no external service. Each product gets a generated SVG (category colour + emoji + name).
+// If the product has an image_url (products.image_url column) it is used, and falls back to the SVG on any load error.
+const CAT_COLORS = {
+  'Computers': ['#1e3a5f', '#3b82f6'], 'Audio': ['#4a1d6b', '#a855f7'], 'Wearables': ['#0f5132', '#22c55e'],
+  'Mobile Accessories': ['#7c2d12', '#f97316'], 'Home & Office': ['#44403c', '#a8a29e'], 'Gaming': ['#7f1d1d', '#ef4444'],
+  'Cameras': ['#111827', '#6b7280'], 'Smart Home': ['#134e4a', '#14b8a6'], 'Kitchen': ['#78350f', '#f59e0b'],
+  'Fitness': ['#831843', '#ec4899'], 'Travel & Bags': ['#1e40af', '#38bdf8'], 'Personal Care': ['#581c87', '#e879f9']
 };
+const xmlEsc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
+const svgImage = (emoji, name, category) => {
+  const [c1, c2] = CAT_COLORS[category] || ['#232f3e', '#5b6b7b'];
+  const label = xmlEsc(name.length > 26 ? name.slice(0, 25) + '…' : name);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><rect width="600" height="400" fill="url(#g)"/><circle cx="500" cy="60" r="140" fill="#fff" opacity=".08"/><circle cx="80" cy="360" r="120" fill="#fff" opacity=".08"/><circle cx="300" cy="170" r="105" fill="#fff" opacity=".16"/><text x="300" y="205" font-size="130" text-anchor="middle">${xmlEsc(emoji || '📦')}</text><text x="300" y="355" font-family="Arial,Helvetica,sans-serif" font-size="30" font-weight="700" fill="#fff" text-anchor="middle">${label}</text></svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+};
+const getProductImage = (emoji, name) => {
+  const p = (typeof P !== 'undefined' && P.find(x => x.name === name)) || {};
+  return p.image_url || svgImage(emoji, name, p.category);
+};
+// any <img> that fails to load (bad image_url, offline CDN...) swaps to the generated art
+document.addEventListener('error', e => {
+  const i = e.target;
+  if (i && i.tagName === 'IMG' && !i.dataset.fb) {
+    i.dataset.fb = 1;
+    const p = P.find(x => x.name === i.alt) || {};
+    i.src = svgImage(p.emoji, i.alt, p.category);
+  }
+}, true);
 
 // Product badge functions
 const getProductBadge = (product) => {
   const badges = [];
   // New product badge (based on ID - newer products have higher IDs)
-  if (product.id > 20) badges.push({ text: 'New', variant: 'new' });
+  if (product.id > Math.max(...P.map(x => x.id)) - 8) badges.push({ text: 'New', variant: 'new' });
   // Bestseller badge (based on review count)
   if (product.reviews > 1000) badges.push({ text: 'Best Seller', variant: 'bestseller' });
   // Trending badge (based on rating and reviews)

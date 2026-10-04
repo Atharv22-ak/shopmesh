@@ -20,3 +20,11 @@
 ## IMPORTANT: git
 Many files are NEW/untracked in your repo (shipping-service/, */src/common.js, pricing.js, package-lock.json, smoke-test.sh).
 Use `git add -A` (not `git commit -a`) or they will not be pushed and the Docker builds will fail.
+
+## Round 2: catalogue + images
+- apps/product-service/src/seed.js (NEW)   119 products in 12 categories (was 29). Seeded idempotently on start, existing price/stock untouched.
+- apps/product-service/src/index.js        uses seed.js, new optional `image_url` column, cache key products:v3:all.
+- apps/frontend/index.html                 images were broken: via.placeholder.com is dead. Now generated SVG art (no external requests);
+                                           set products.image_url to use a real photo (auto-falls back to the SVG if it fails to load).
+                                           "New" badge only on the 8 newest items; bigger image on the product page.
+- apps/shipping-service/package.json       added missing `express` dependency.
