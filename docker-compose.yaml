@@ -35,6 +35,8 @@ services:
       USER_SERVICE_URL: http://user-service:3001
       PRODUCT_SERVICE_URL: http://product-service:3002
       ORDER_SERVICE_URL: http://order-service:3003
+      SHIPPING_SERVICE_URL: http://shipping-service:3006
+      NOTIFICATION_SERVICE_URL: http://notification-worker:3005
   user-service:
     <<: *common
     build: ./apps/user-service
@@ -53,3 +55,8 @@ services:
   notification-worker:
     <<: *common
     build: ./apps/notification-worker
+    environment: { <<: *env, USER_SERVICE_URL: "http://user-service:3001" }
+  shipping-service:
+    <<: *common
+    build: ./apps/shipping-service
+    environment: { <<: *env, STEP_SEC: "5" }

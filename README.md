@@ -20,6 +20,12 @@
                                                                   └──► order-service updates status
 ```
 
+## What's new (shipping + fixes)
+- **shipping-service** (new, port 3006, Redis-backed): consumes `payment.completed`, creates a shipment (carrier, `SMX…` tracking number, ETA), advances it LABEL_CREATED → PICKED_UP → IN_TRANSIT → OUT_FOR_DELIVERY → DELIVERED every `STEP_SEC`, and publishes `shipment.created`, `order.shipped`, `order.delivered`. `order.cancelled` cancels a not-yet-shipped parcel. Replicas are safe (due-times in a Redis sorted set, claimed with `ZREM`).
+- `GET /api/shipments/:orderId` (JWT, owner only) powers the tracking timeline on the Orders page.
+- order-service now follows shipment events; its old built-in warehouse timer is off unless `FULFILMENT_SIM=true`.
+- **Fixed:** `events.js` now passes `messageId` to consumers (notification-worker crashed on `meta.messageId`, so no notifications were stored); the frontend router had a syntax error that blocked the whole UI; docker-compose was missing the notification route/env.
+
 ## Learning goals -> where to look
 | Concept | File |
 |---|---|

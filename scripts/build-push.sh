@@ -3,7 +3,7 @@
 set -euo pipefail
 REGISTRY="${REGISTRY:?set REGISTRY, e.g. docker.io/myuser}"
 TAG="${TAG:-0.1.0}"
-ALL=(frontend api-gateway user-service product-service order-service payment-service notification-worker)
+ALL=(frontend api-gateway user-service product-service order-service payment-service notification-worker shipping-service)
 SERVICES=("${@:-${ALL[@]}}")
 
 for s in "${SERVICES[@]}"; do
