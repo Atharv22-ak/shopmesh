@@ -8,11 +8,11 @@ on:
     inputs:
       tag:
         description: Image tag
-        default: v1
+        default: v7
 
 env:
   REGISTRY_USER: rwxatharv
-  TAG: ${{ github.event.inputs.tag || 'v1' }}
+  TAG: ${{ github.event.inputs.tag || 'v7' }}
 
 jobs:
   build:
@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [frontend, api-gateway, user-service, product-service, order-service, payment-service, notification-worker]
+        service: [frontend, api-gateway, user-service, product-service, order-service, payment-service, notification-worker, shipping-service]
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
