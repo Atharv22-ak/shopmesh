@@ -8,7 +8,7 @@ on:
     inputs:
       tag:
         description: Image tag
-        default: v7
+        default: v1
 
 env:
   REGISTRY_USER: rwxatharv
