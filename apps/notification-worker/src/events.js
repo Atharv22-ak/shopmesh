@@ -18,7 +18,7 @@ async function connect({ onClose } = {}) {
         if (onClose) return onClose();
         console.error('rabbitmq closed, exiting'); process.exit(1);
       });
-      ch.connection = conn;
+      ch.conn = conn;   // NOT ch.connection: amqplib uses that name internally
       return ch;
     } catch (e) {
       console.log('waiting for rabbitmq...');
