@@ -1,5 +1,5 @@
 REGISTRY ?= rwxatharv
-TAG      ?= v1
+TAG      ?= v7
 NS       ?= shopmesh
 RELEASE  ?= shopmesh
 DOMAIN   ?=            # e.g. 13.233.1.2.nip.io  (empty = use values.yaml)
